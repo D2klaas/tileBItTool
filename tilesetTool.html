@@ -1,0 +1,494 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Unbenanntes Dokument</title>
+<style>
+	table{
+		float:left;
+		margin: 10px;
+		border: 1px solid red;
+	}
+	td{
+		width: 10px;
+		height: 10px;
+	}
+	td.t1,
+	td.t2,
+	td.t4,
+	td.t8,
+	td.t16,
+	td.t32,
+	td.t64,
+	td.t128{
+		background-color:#333;
+	}
+	td.center{
+		background-color:#AAA;
+	}
+	th{
+		font-weight:normal;
+		font-family:Arial, Helvetica, sans-serif;
+		font-size:11px;
+		border-bottom:1px solid red;
+	}
+	.clone2 td.t1,
+	.clone2 td.t2,
+	.clone2 td.t4,
+	.clone2 td.t8,
+	.clone2 td.t16,
+	.clone2 td.t32,
+	.clone2 td.t64,
+	.clone2 td.t128{
+		background-color:pink;
+	}
+	
+	.clone1 td.t1,
+	.clone1 td.t2,
+	.clone1 td.t4,
+	.clone1 td.t8,
+	.clone1 td.t16,
+	.clone1 td.t32,
+	.clone1 td.t64,
+	.clone1 td.t128{
+		background-color:red !important;
+	}
+	textarea{
+		width: 100%;
+		height: 10em;
+		clear:both;
+	}
+/*	
+	label{
+		display: inline-block;
+		width: 100px;
+		text-align: right;
+	}
+*/
+	#patternTable td{
+		width: 30px;
+		height: 30px;
+		border: 1px solid grey;
+	}
+
+	#patternTable td.fill{
+		background-color: black;
+	}
+
+	#patternTable td.repl{
+		background-color: #CCF;
+	}
+	#patternTable td.fill.repl{
+		background-color: #44A;
+	}
+
+</style>
+<script
+			  src="https://code.jquery.com/jquery-3.4.1.min.js"
+			  crossorigin="anonymous"></script>
+<script>
+	var bins = [1,2,4,8,16,32,64,128]
+	var degs = [0,90,180,270]
+	var axises = ["_","y","xy"]
+	var iCreation, iTransform;
+	var search_inner = false;
+	
+	$(document).ready(function(){
+		//run()
+		$('#pattern_width, #pattern_height').change(changePatternLayout)
+	})
+	
+	function changePatternLayout(){
+		$('#patternTable').empty();
+		var html = '';
+		var width = parseInt($('#pattern_width').val());
+		var height = parseInt($('#pattern_height').val());
+		for( var y=0; y<height; y++){
+			html += '<tr>'
+			for( var x=0; x<width; x++){
+				var bit = (Math.pow(2,(y*width+x)));
+				html += '<td id="patternTile'+bit+'" data-bin="'+(Math.pow(2,(y*width+x)))+'"></td>'
+			}
+			html += '</tr>'
+			html += '</tr>'
+		}
+		$('#patternTable').html(html)
+		$('#patternTable td').click(clickPatternTile)
+	}
+	
+	function clickPatternTile( tile ){
+		var bin = parseInt($(this).attr('data-bin'))
+		if( $('input[name=brush]:checked').val() == 'fill'){
+			$(this).toggleClass('fill')
+		}else{
+			$(this).toggleClass('repl')
+		}
+
+		var width = parseInt($('#pattern_width').val());
+		var height = parseInt($('#pattern_height').val());
+		var pattern_bin = 0;
+		var repl_bin = 0;
+		
+		for( var y=0; y<height; y++){
+			for( var x=0; x<width; x++){
+				var bit = (Math.pow(2,(y*width+x)));
+				if( $('#patternTile'+bit).hasClass('fill') ){
+					pattern_bin += bit;
+				}
+				if( $('#patternTile'+bit).hasClass('repl') ){
+					repl_bin += bit;
+				}
+			}
+		}
+		var flags = ''
+		flags += $('input[name=frequency]:checked').val()
+		if( $('input#patternMirror:checked').val() ){
+			flags += 'm'
+		}
+		if( $('input#patternRotate:checked').val() ){
+			flags += 'r'
+		}
+		if( $('input#patternRotate:checked').val() ){
+			flags += 't'
+		}
+		$('#patternName').text('pattern_'+width+'_'+height+'_'+pattern_bin+'_'+repl_bin+'_'+flags)
+	}
+	
+	function run(){
+		iCreation = "\tmatch bit:\n"
+		iTransform = "\tmatch bin:\n"
+		$('.tBin').remove();
+		search_inner = $('#search_innerbin')[0].checked;
+		
+		for( var y=0; y<16; y++){
+			for( var x=0; x<16; x++){
+				var bin = (x+y*16)
+				test(bin)
+			}
+		}
+		$("#iCreation").val(iCreation)
+		$("#iTransform").val(iTransform)
+
+		if( $('#hide_clones')[0].checked){
+			$('.clone1, .clone2').hide()
+		}
+	}
+	
+	function test(bin){
+		var cl = "noClone";
+		var clOff = ""
+		
+		var iBin = innerBin(bin)
+		
+		clOff = transform(bin, bin,"data-bin")
+		if( clOff != ""){
+			cl = "clone1"
+		}else{
+			if(search_inner){
+				clOff = transform(bin, iBin,"data-innerbin")
+				if( clOff != "" ){
+					cl = "clone2"
+				}
+			}
+		}
+		
+		var html = "<table data-bin='"+bin+"' data-innerbin='"+iBin+"' id='bin_"+bin+"' class='tBin "+cl+"' data-clone='"+clOff+"'>"
+		html += "<tr><th colspan='3'>"+bin+"</th></tr>"
+		html += "<tr><td class='t"+(bin&1)+"'></td><td class='t"+(bin&2)+"'></td><td class='t"+(bin&4)+"'></td></tr>"
+		html += "<tr><td class='t"+(bin&8)+"'></td><td class='center'></td><td class='t"+(bin&16)+"'></td></tr>"
+		html += "<tr><td class='t"+(bin&32)+"'></td><td class='t"+(bin&64)+"'></td><td class='t"+(bin&128)+"'></td></tr>"
+		html += "</table>"
+		$("#tilset_preview").append(html)
+	}
+	
+	function innerBin(bit){
+		var iBit = 0
+		if( (bit & 1) == 1) iBit = iBit | 1
+		if( (bit & 2) == 2) iBit = iBit | (1 + 2 + 4)
+		if( (bit & 4) == 4) iBit = iBit | 4
+		if( (bit & 8) == 8) iBit = iBit | (1 + 8 + 32)
+		if( (bit & 16) == 16) iBit = iBit | (4 + 16 + 128)
+		if( (bit & 32) == 32) iBit = iBit | 32
+		if( (bit & 64) == 64) iBit = iBit | (32 + 64 + 128)
+		if( (bit & 128) == 128) iBit = iBit | 128
+		return iBit
+	}
+	
+	function transform(bin, iBin, attr="data-bin"){
+		var nb = iBin;
+		var match = $('.tBin['+attr+'="'+nb+'"].noClone')
+		if( match.length > 0 ){
+			var clOff = match.attr("data-bin")+"-"+degs[r]+"-"+axises[a]
+			iCreation += "\t\t"+bin+":\n"
+			iCreation += "\t\t\tbit = "+match.attr("data-bin")+"\n"
+			return clOff
+		}
+		for( var r in degs ){
+			var nb = rotate( iBin, degs[r] );
+			var match = $('.tBin['+attr+'="'+nb+'"].noClone')
+			if( match.length > 0 ){
+				var clOff = match.attr("data-bin")+"-"+degs[r]+"-"+axises[a]
+				iCreation += "\t\t"+bin+":\n"
+				iCreation += "\t\t\tbit = "+match.attr("data-bin")+"\n"
+				iTransform += "\t\t"+bin+":\n"
+				iTransform += "\t\t\trotateTile(tile,"+degs[r]+")\n"
+				return clOff
+			}
+		}
+		for( var a in axises ){
+			var mb = mirror( iBin, axises[a] );
+			var match = $('.tBin['+attr+'="'+mb+'"].noClone')
+			if( match.length > 0 ){
+				var clOff = mb+"-"+degs[r]+"-"+axises[a]
+				iCreation += "\t\t"+bin+":\n"
+				iCreation += "\t\t\tbit = "+match.attr("data-bin")+"\n"
+				iTransform += "\t\t"+bin+":\n"
+				iTransform += "\t\t\tmirrorTile(tile,\""+axises[a]+"\")\n"
+				return clOff
+			}
+		}
+		for( var a in axises ){
+//			console.log("->"+bin)
+			var mb = mirror( iBin, axises[a] );
+//			console.log(axises[a]+":"+mb)
+			for( var r in degs ){
+				var nb = rotate( mb, degs[r] );
+//				console.log(degs[r]+":"+nb)
+				var match = $('.tBin['+attr+'="'+nb+'"].noClone')
+				if( match.length > 0 ){
+					var clOff = nb+"-"+degs[r]+"-"+axises[a]
+					iCreation += "\t\t"+bin+":\n"
+					iCreation += "\t\t\tbit = "+match.attr("data-bin")+"\n"
+					iTransform += "\t\t"+bin+":\n"
+					iTransform += "\t\t\trotateTile(tile,"+degs[r]+")\n"
+					iTransform += "\t\t\tmirrorTile(tile,\""+axises[a]+"\")\n"
+					return clOff
+				}
+			}
+		}
+		return ""
+	}
+	
+	function rotate( bin, deg ){
+		var newBin = 0;
+		for( var i in bins ){
+			if ((bin & bins[i]) == bins[i]){
+				newBin += rotateBit( bins[i], deg )
+			}
+		}
+		return newBin
+	}
+	
+	function mirror( bin, axis ){
+		var newBin = 0;
+		for( var i in bins ){
+			if ((bin & bins[i]) == bins[i]){
+				newBin += mirrorBit( bins[i], axis )
+			}
+		}
+		return newBin
+	}
+	
+	function mirrorBit( bit, axis ){
+		switch(bit){
+			case 1:
+				switch(axis){
+					case "x":
+						return 32
+					case "y":
+						return 4
+					case "xy":
+						return 128
+				}
+			case 2:
+				switch(axis){
+					case "x":
+						return 64
+					case "y":
+						return 2
+					case "xy":
+						return 64
+				}
+			case 4:
+				switch(axis){
+					case "x":
+						return 128
+					case "y":
+						return 1
+					case "xy":
+						return 32
+				}
+			case 8:
+				switch(axis){
+					case "x":
+						return 8
+					case "y":
+						return 16
+					case "xy":
+						return 16
+				}
+			case 16:
+				switch(axis){
+					case "x":
+						return 16
+					case "y":
+						return 8
+					case "xy":
+						return 8
+				}
+			case 32:
+				switch(axis){
+					case "x":
+						return 1
+					case "y":
+						return 128
+					case "xy":
+						return 4
+				}
+			case 64:
+				switch(axis){
+					case "x":
+						return 2
+					case "y":
+						return 64
+					case "xy":
+						return 2
+				}
+			case 128:
+				switch(axis){
+					case "x":
+						return 4
+					case "y":
+						return 32
+					case "xy":
+						return 1
+				}
+		}
+		return bit
+	}
+	
+	function rotateBit( bit, deg ){
+		switch(bit){
+			case 1:
+				switch(deg){
+					case 90:
+						return 32
+					case 180:
+						return 128
+					case 270:
+						return 4
+			}
+			case 2:
+				switch(deg){
+					case 90:
+						return 8
+					case 180:
+						return 64
+					case 270:
+						return 16
+			}
+			case 4:
+				switch(deg){
+					case 90:
+						return 1
+					case 180:
+						return 32
+					case 270:
+						return 128
+			}
+			case 8:
+				switch(deg){
+					case 90:
+						return 64
+					case 180:
+						return 16
+					case 270:
+						return 2
+			}
+			case 16:
+				switch(deg){
+					case 90:
+						return 2
+					case 180:
+						return 8
+					case 270:
+						return 64
+			}
+			case 32:
+				switch(deg){
+					case 90:
+						return 128
+					case 180:
+						return 4
+					case 270:
+						return 1
+			}
+			case 64:
+				switch(deg){
+					case 90:
+						return 16
+					case 180:
+						return 2
+					case 270:
+						return 8
+			}
+			case 128:
+				switch(deg){
+					case 90:
+						return 4
+					case 180:
+						return 1
+					case 270:
+						return 32
+			}
+		}
+		return bit
+	}
+</script>
+</head>
+
+<body>
+	<div style="width:50%;float:left">
+		<h2>Tileset Reducer</h2>
+		<div>
+			<button onclick="run()">CALCULATE</button>
+			<label for="search_innerbin">Reduce to core</label><input type="checkbox" id="search_innerbin">
+			<label for="hide_clones">Hide clones</label><input type="checkbox" id="hide_clones">
+		</div>
+		<textarea id="iCreation">
+		</textarea>
+		<textarea id="iTransform">
+		</textarea>
+		<hr />
+		<div id="tilset_preview">
+		</div>
+	</div>
+	<div style="width:50%;float:left">
+		<h2>Tilepattern Designer</h2>
+		<div id="patternName">-- generated Name --</div>
+		<label for="pattern_width">Width: </label><input id="pattern_width">
+		<label for="pattern_height">Height: </label><input id="pattern_height">
+		<button onclick="changePatternLayout()">Change</button>
+		<hr />
+		<div style="width:50%;float:left">
+			<table id="patternTable">
+			</table>
+		</div>
+		<div style="width:50%;float:left;margin-bottom:1em">
+			<input type="radio" id="brush_fill" name="brush" value="fill"><label for="brush_fill">Fill </label><br>
+			<input type="radio" id="brush_repl" name="brush" value="repl"><label for="brush_repl">Repl </label><br>
+		</div>
+		<div style="width:50%;float:left;margin-bottom:1em">
+			<input type="radio" id="frequency_1" name="frequency" value="a"><label for="frequency_1">allways (on any place possibile) </label><br>
+			<input type="radio" id="frequency_2" name="frequency" value="o"><label for="frequency_2">once (once in all) </label><br>
+			<input type="radio" id="frequency_4" name="frequency" value="r"><label for="frequency_4">rarely (15%) </label><br>
+			<input type="radio" id="frequency_3" name="frequency" value="c"><label for="frequency_3">common (60%) </label><br>
+		</div>
+		<div style="width:50%;float:left;margin-bottom:1em">
+			<input type="checkbox" id="patternMirror" name="mirror" value="r"><label for="patternMirror">mirror (mirror to match pattern) </label><br>
+			<input type="checkbox" id="patternRotate" name="rotate" value="m"><label for="patternRotate">rotate (rotate to match pattern) </label><br>
+			<input type="checkbox" id="patternTurn" name="rotate" value="m"><label for="patternTurn">turn randomly (turn randomly after placing) </label><br>
+		</div>
+	</div>
+</body>
+</html>
